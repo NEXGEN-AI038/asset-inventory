@@ -1,51 +1,68 @@
-export type UserRole = 'Superadmin' | 'AssetManager' | 'User';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
-export interface AuthUser {
-  username: string;
-  role: UserRole;
-  displayName: string;
-}
+export type UserRole = 'PlatformAdmin' | 'CompanyAdmin' | 'AssetManager' | 'User';
 
-const VALID_USERS: Record<string, { password: string; user: AuthUser }> = {
-  Superadmin: {
-    password: 'P@ssw0d#123456',
-    user: { username: 'Superadmin', role: 'Superadmin', displayName: 'Superadmin' },
-  },
-  AssetManager: {
-    password: 'M@n@ger$123456',
-    user: { username: 'AssetManager', role: 'AssetManager', displayName: 'Asset Manager' },
-  },
-  user: {
-    password: 'u$er##123456',
-    user: { username: 'user', role: 'User', displayName: 'User' },
-  },
+export const ROLE_LABELS: Record<UserRole, string> = {
+  PlatformAdmin: 'Platform Admin',
+  CompanyAdmin: 'Company Admin',
+  AssetManager: 'Asset Manager',
+  User: 'User',
 };
 
-const STORAGE_KEY = 'assethub_auth';
-
-export function authenticate(username: string, password: string): AuthUser | null {
-  const entry = VALID_USERS[username];
-  if (!entry) return null;
-  if (entry.password !== password) return null;
-  return entry.user;
+export interface AuthUser {
+  email: string;
+  role: UserRole;
+  displayName: string;
+  companyId: string;
+  companyName: string;
 }
 
-export function saveSession(user: AuthUser): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+const ROLES = Object.keys(ROLE_LABELS) as UserRole[];
+
+// Who the person is comes from their Supabase account (app_metadata is set
+// server-side by the admin-api function and cannot be edited by the user).
+export function userFromSession(session: Session | null): AuthUser | null {
+  const user = session?.user;
+  if (!session || !user) return null;
+  const meta = (user.app_metadata ?? {}) as Record<string, unknown>;
+  const role = meta.role as UserRole;
+  if (!ROLES.includes(role)) return null;
+  const companyId = typeof meta.company_id === 'string' ? meta.company_id : '';
+  if (role !== 'PlatformAdmin' && !companyId) return null;
+  const email = user.email ?? '';
+  return {
+    email,
+    role,
+    displayName: typeof meta.display_name === 'string' && meta.display_name ? meta.display_name : email,
+    companyId,
+    companyName:
+      role === 'PlatformAdmin' ? 'Platform Admin' : typeof meta.company_name === 'string' ? meta.company_name : companyId,
+  };
 }
 
-export function loadSession(): AuthUser | null {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as AuthUser;
-  } catch {
+export async function signIn(email: string, password: string): Promise<AuthUser | null> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+  if (error || !data.session) return null;
+  const user = userFromSession(data.session);
+  if (!user) {
+    await supabase.auth.signOut();
     return null;
   }
+  return user;
 }
 
-export function clearSession(): void {
-  localStorage.removeItem(STORAGE_KEY);
+export async function signOut(): Promise<void> {
+  await supabase.auth.signOut();
+}
+
+export async function sendPasswordReset(email: string): Promise<void> {
+  await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: window.location.origin });
+}
+
+export async function setPassword(password: string): Promise<string | null> {
+  const { error } = await supabase.auth.updateUser({ password });
+  return error ? error.message : null;
 }
 
 export interface Permissions {
@@ -62,7 +79,7 @@ import type { ChangeType } from '@/types';
 
 export function getPermissions(role: UserRole): Permissions {
   switch (role) {
-    case 'Superadmin':
+    case 'CompanyAdmin':
       return {
         canDelete: true,
         canImport: true,
@@ -81,6 +98,16 @@ export function getPermissions(role: UserRole): Permissions {
         canLogUpdate: true,
         canExport: true,
         allowedChangeTypes: ['Status', 'Location', 'Reassignment', 'Note'],
+      };
+    case 'PlatformAdmin':
+      return {
+        canDelete: false,
+        canImport: false,
+        canAdd: false,
+        canEdit: false,
+        canLogUpdate: false,
+        canExport: false,
+        allowedChangeTypes: [],
       };
     case 'User':
       return {

@@ -1,0 +1,5 @@
+project_id = "asset-inventory"
+
+# We verify the caller's token ourselves inside the function.
+[functions.admin-api]
+verify_jwt = false

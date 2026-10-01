@@ -1,7 +1,7 @@
-import { Boxes, LayoutDashboard, ClipboardList, LogOut } from 'lucide-react';
-import type { AuthUser } from '@/lib/auth';
+import { Boxes, LayoutDashboard, ClipboardList, LogOut, Users, Building2 } from 'lucide-react';
+import { ROLE_LABELS, type AuthUser } from '@/lib/auth';
 
-export type Tab = 'dashboard' | 'inventory' | 'audit';
+export type Tab = 'dashboard' | 'inventory' | 'audit' | 'team' | 'companies';
 
 interface HeaderProps {
   activeTab: Tab;
@@ -11,11 +11,19 @@ interface HeaderProps {
   onLogout: () => void;
 }
 
-const TABS: { id: Tab; label: string; icon: typeof LayoutDashboard }[] = [
+type TabDef = { id: Tab; label: string; icon: typeof LayoutDashboard };
+
+const ASSET_TABS: TabDef[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
   { id: 'audit', label: 'Audit Log', icon: ClipboardList },
 ];
+
+export function tabsForRole(role: AuthUser['role']): TabDef[] {
+  if (role === 'PlatformAdmin') return [{ id: 'companies', label: 'Companies', icon: Building2 }];
+  if (role === 'CompanyAdmin') return [...ASSET_TABS, { id: 'team', label: 'Team', icon: Users }];
+  return ASSET_TABS;
+}
 
 export default function Header({ activeTab, onTabChange, unreportedCount, currentUser, onLogout }: HeaderProps) {
   return (
@@ -28,13 +36,13 @@ export default function Header({ activeTab, onTabChange, unreportedCount, curren
             </div>
             <div>
               <h1 className="text-lg font-bold leading-tight text-slate-800">AssetHub</h1>
-              <p className="text-xs text-slate-400">Asset Management Portal</p>
+              <p className="text-xs text-slate-400">{currentUser.companyName}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <nav className="flex items-center gap-1 rounded-xl bg-slate-100 p-1">
-              {TABS.map((tab) => {
+              {tabsForRole(currentUser.role).map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
@@ -62,7 +70,7 @@ export default function Header({ activeTab, onTabChange, unreportedCount, curren
             <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-medium text-slate-700">{currentUser.displayName}</p>
-                <p className="text-xs text-slate-400">{currentUser.role}</p>
+                <p className="text-xs text-slate-400">{ROLE_LABELS[currentUser.role]}</p>
               </div>
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-slate-700 text-xs font-bold text-white">
                 {currentUser.displayName.charAt(0).toUpperCase()}

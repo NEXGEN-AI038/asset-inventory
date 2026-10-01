@@ -21,6 +21,7 @@ export type ChangeType =
 
 export interface Asset {
   id: string;
+  company_id?: string;
   asset_tag: string;
   name: string;
   category: string;
@@ -36,6 +37,7 @@ export interface Asset {
 
 export interface AuditLog {
   id: string;
+  company_id?: string;
   asset_id: string | null;
   asset_tag: string | null;
   asset_name: string | null;

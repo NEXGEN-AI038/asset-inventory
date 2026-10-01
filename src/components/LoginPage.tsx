@@ -1,33 +1,44 @@
 import { useState } from 'react';
-import { Lock, User as UserIcon, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import { authenticate, saveSession, type AuthUser } from '@/lib/auth';
+import { Lock, Mail, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { signIn, sendPasswordReset, type AuthUser } from '@/lib/auth';
 
 interface LoginPageProps {
   onLogin: (user: AuthUser) => void;
+  initialError?: string | null;
 }
 
-export default function LoginPage({ onLogin }: LoginPageProps) {
-  const [username, setUsername] = useState('');
+export default function LoginPage({ onLogin, initialError }: LoginPageProps) {
+  const [mode, setMode] = useState<'signin' | 'forgot'>('signin');
+  const [notice, setNotice] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(initialError ?? '');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setNotice('');
     setLoading(true);
-
-    setTimeout(() => {
-      const user = authenticate(username.trim(), password);
+    try {
+      if (mode === 'forgot') {
+        await sendPasswordReset(email);
+        setNotice('If an account exists for that email, a reset link is on its way.');
+        setLoading(false);
+        return;
+      }
+      const user = await signIn(email, password);
       if (user) {
-        saveSession(user);
         onLogin(user);
       } else {
-        setError('Invalid username or password. Please try again.');
+        setError('Invalid email or password. Please try again.');
         setLoading(false);
       }
-    }, 400);
+    } catch {
+      setError('Could not complete the request. Please check your connection and try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,8 +53,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50">
-          <h2 className="mb-1 text-lg font-semibold text-slate-800">Welcome back</h2>
-          <p className="mb-6 text-sm text-slate-400">Sign in to access your dashboard</p>
+          <h2 className="mb-1 text-lg font-semibold text-slate-800">{mode === 'forgot' ? 'Reset your password' : 'Welcome back'}</h2>
+          <p className="mb-6 text-sm text-slate-400">
+            {mode === 'forgot' ? "Enter your email and we'll send you a reset link" : 'Sign in to access your dashboard'}
+          </p>
+
+          {notice && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              {notice}
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
@@ -54,21 +74,22 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-slate-500">Username</label>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">Email</label>
               <div className="relative">
-                <UserIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
-                  autoComplete="username"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  autoComplete="email"
                   className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-4 text-sm text-slate-700 placeholder-slate-400 transition-colors focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
                   required
                 />
               </div>
             </div>
 
+            {mode === 'signin' && (
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-slate-500">Password</label>
               <div className="relative">
@@ -90,7 +111,13 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <div className="mt-2 text-right">
+                <button type="button" onClick={() => { setMode('forgot'); setError(''); }} className="text-xs font-medium text-indigo-600 hover:text-indigo-700">
+                  Forgot password?
+                </button>
+              </div>
             </div>
+            )}
 
             <button
               type="submit"
@@ -100,14 +127,19 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               {loading ? (
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
               ) : (
-                'Sign In'
+                mode === 'forgot' ? 'Send reset link' : 'Sign In'
               )}
             </button>
+            {mode === 'forgot' && (
+              <button type="button" onClick={() => { setMode('signin'); setNotice(''); setError(''); }} className="w-full text-center text-xs text-slate-400 hover:text-slate-600">
+                Back to sign in
+              </button>
+            )}
           </form>
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          Authorized personnel only. Contact your administrator for access.
+          Access is by invitation only. Contact your company administrator.
         </p>
         <p className="mt-2 text-center text-xs font-medium text-emerald-700">Designed by GD Solutions</p>
       </div>

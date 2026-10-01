@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { supabase, initialAuthLink } from '@/lib/supabase';
 import type { Asset, AuditLog, AssetInput, ChangeType } from '@/types';
 import { assetsToCsv, downloadFile } from '@/lib/csv';
-import { loadSession, clearSession, getPermissions, type AuthUser } from '@/lib/auth';
+import { userFromSession, signOut, getPermissions, type AuthUser } from '@/lib/auth';
 
 import Header, { type Tab } from '@/components/Header';
 import Dashboard from '@/components/Dashboard';
@@ -14,9 +14,14 @@ import AssetFormModal from '@/components/AssetFormModal';
 import LogUpdateModal from '@/components/LogUpdateModal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import LoginPage from '@/components/LoginPage';
+import SetPasswordPage from '@/components/SetPasswordPage';
+import TeamManager from '@/components/TeamManager';
+import CompaniesManager from '@/components/CompaniesManager';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => loadSession());
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [needsPassword, setNeedsPassword] = useState(initialAuthLink.type !== null);
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -39,12 +44,47 @@ export default function App() {
     setAuditLogs(data as AuditLog[]);
   }, []);
 
+  // Restore / track the Supabase Auth session (source of truth for who is signed in)
   useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      setCurrentUser(userFromSession(data.session));
+      setAuthReady(true);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setCurrentUser(userFromSession(session));
+    });
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Load this company's data once signed in; wipe it on sign-out
+  const userKey = currentUser ? `${currentUser.companyId}:${currentUser.email}` : null;
+  const isPlatformAdmin = currentUser?.role === 'PlatformAdmin';
+  useEffect(() => {
+    if (!userKey) {
+      setAssets([]);
+      setAuditLogs([]);
+      setLoading(true);
+      return;
+    }
+    setActiveTab(isPlatformAdmin ? 'companies' : 'dashboard');
+    if (isPlatformAdmin) {
+      // The platform admin manages companies only and never loads any company's data
+      setLoading(false);
+      return;
+    }
+    let active = true;
     (async () => {
       await Promise.all([fetchAssets(), fetchLogs()]);
-      setLoading(false);
+      if (active) setLoading(false);
     })();
-  }, [fetchAssets, fetchLogs]);
+    return () => { active = false; };
+  }, [userKey, isPlatformAdmin, fetchAssets, fetchLogs]);
 
   const handleSaveAsset = async (input: AssetInput) => {
     if (editingAsset && editingAsset !== 'new') {
@@ -147,14 +187,36 @@ export default function App() {
 
   const unreportedCount = auditLogs.filter((l) => !l.reported_to_management).length;
 
-  const handleLogout = () => {
-    clearSession();
+  const handleLogout = async () => {
+    await signOut();
     setCurrentUser(null);
-    setActiveTab('dashboard');
+    setNeedsPassword(false);
   };
 
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+      </div>
+    );
+  }
+
   if (!currentUser) {
-    return <LoginPage onLogin={setCurrentUser} />;
+    return <LoginPage onLogin={setCurrentUser} initialError={initialAuthLink.error} />;
+  }
+
+  if (needsPassword && initialAuthLink.type) {
+    return (
+      <SetPasswordPage
+        mode={initialAuthLink.type}
+        email={currentUser.email}
+        onDone={() => {
+          window.history.replaceState(null, '', window.location.pathname);
+          setNeedsPassword(false);
+        }}
+        onCancel={handleLogout}
+      />
+    );
   }
 
   const permissions = getPermissions(currentUser.role);
@@ -170,8 +232,10 @@ export default function App() {
           </div>
         ) : (
           <>
-            {activeTab === 'dashboard' && <Dashboard assets={assets} auditLogs={auditLogs} />}
-            {activeTab === 'inventory' && (
+            {activeTab === 'companies' && isPlatformAdmin && <CompaniesManager currentUser={currentUser} />}
+            {activeTab === 'team' && currentUser.role === 'CompanyAdmin' && <TeamManager currentUser={currentUser} />}
+            {activeTab === 'dashboard' && !isPlatformAdmin && <Dashboard assets={assets} auditLogs={auditLogs} />}
+            {activeTab === 'inventory' && !isPlatformAdmin && (
               <InventoryView
                 assets={assets}
                 permissions={permissions}
@@ -183,7 +247,7 @@ export default function App() {
                 onAddClick={() => setEditingAsset('new')}
               />
             )}
-            {activeTab === 'audit' && (
+            {activeTab === 'audit' && !isPlatformAdmin && (
               <AuditLogViewer logs={auditLogs} onMarkReported={handleMarkReported} />
             )}
           </>
