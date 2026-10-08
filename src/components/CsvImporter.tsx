@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Upload, FileSpreadsheet, Download, Check, X, ArrowRight, AlertCircle } from 'lucide-react';
 import type { AssetInput } from '@/types';
 import { parseCsv, mapCsvRecordToAsset, generateSampleCsv, downloadFile, CSV_HEADERS } from '@/lib/csv';
+import { formatINR } from '@/lib/currency';
 
 interface CsvImporterProps {
   onClose: () => void;
@@ -224,7 +225,7 @@ export default function CsvImporter({ onClose, onImport }: CsvImporterProps) {
                           <td className="px-3 py-2 font-medium text-slate-700">{a.name || '—'}</td>
                           <td className="px-3 py-2 text-slate-500">{a.category}</td>
                           <td className="px-3 py-2 text-slate-500">{a.status}</td>
-                          <td className="px-3 py-2 text-slate-500">${a.purchase_price.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-slate-500">{formatINR(a.purchase_price)}</td>
                         </tr>
                       ))}
                     </tbody>

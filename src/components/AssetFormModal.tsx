@@ -148,7 +148,7 @@ export default function AssetFormModal({ asset, onClose, onSave }: AssetFormModa
             </Field>
           </div>
 
-          <Field label="Purchase Price ($)">
+          <Field label="Purchase Price (₹)">
             <input
               type="number"
               min="0"

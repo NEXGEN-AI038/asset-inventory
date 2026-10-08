@@ -1,6 +1,7 @@
 import { Pencil, History, Trash2, ArrowUpDown } from 'lucide-react';
 import type { Asset } from '@/types';
 import { STATUS_STYLES, STATUS_DOT } from '@/lib/constants';
+import { formatINR } from '@/lib/currency';
 
 interface AssetTableProps {
   assets: Asset[];
@@ -83,7 +84,7 @@ export default function AssetTable({
                 {asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : '—'}
               </td>
               <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-700">
-                ${asset.purchase_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {formatINR(asset.purchase_price)}
               </td>
               <td className="px-4 py-3">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[asset.status]}`}>

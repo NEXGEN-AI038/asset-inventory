@@ -1,4 +1,5 @@
-import { Package, DollarSign, MonitorCheck, Wrench, AlertTriangle } from 'lucide-react';
+import { Package, IndianRupee, MonitorCheck, Wrench, AlertTriangle } from 'lucide-react';
+import { formatINR } from '@/lib/currency';
 import type { Asset, AuditLog } from '@/types';
 
 interface StatCardsProps {
@@ -22,8 +23,8 @@ export default function StatCards({ assets, auditLogs }: StatCardsProps) {
     },
     {
       label: 'Total Asset Value',
-      value: `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      icon: DollarSign,
+      value: formatINR(totalValue),
+      icon: IndianRupee,
       iconBg: 'bg-emerald-50 text-emerald-600',
     },
     {

@@ -1,4 +1,5 @@
-import { Pencil, History, Trash2, MapPin, User, Calendar, DollarSign } from 'lucide-react';
+import { Pencil, History, Trash2, MapPin, User, Calendar, IndianRupee } from 'lucide-react';
+import { formatINR } from '@/lib/currency';
 import type { Asset } from '@/types';
 import { STATUS_STYLES, STATUS_DOT, CATEGORY_COLORS } from '@/lib/constants';
 
@@ -47,9 +48,9 @@ export default function AssetCard({ asset, onEdit, onLogUpdate, onDelete, canEdi
           <span>{asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : 'No date'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <DollarSign className="h-3.5 w-3.5 text-slate-400" />
+          <IndianRupee className="h-3.5 w-3.5 text-slate-400" />
           <span className="font-medium text-slate-600">
-            ${asset.purchase_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {formatINR(asset.purchase_price)}
           </span>
         </div>
       </div>
