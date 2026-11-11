@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Asset } from '@/types';
 import type { Permissions } from '@/lib/auth';
+import { isAssigned, isAvailable } from '@/lib/stock';
 import AssetTable from './AssetTable';
 import AssetCard from './AssetCard';
 import InventoryToolbar, { type ViewMode } from './InventoryToolbar';
@@ -33,6 +34,7 @@ export default function InventoryView({
   const [categoryFilter, setCategoryFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [stockFilter, setStockFilter] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [page, setPage] = useState(1);
   const [sortField, setSortField] = useState<keyof Asset>('asset_tag');
@@ -55,12 +57,16 @@ export default function InventoryView({
         (a) =>
           a.name.toLowerCase().includes(q) ||
           a.asset_tag.toLowerCase().includes(q) ||
-          (a.assigned_to ?? '').toLowerCase().includes(q)
+          (a.assigned_to ?? '').toLowerCase().includes(q) ||
+          (a.project_name ?? '').toLowerCase().includes(q) ||
+          (a.assigned_by ?? '').toLowerCase().includes(q)
       );
     }
     if (categoryFilter) result = result.filter((a) => a.category === categoryFilter);
     if (locationFilter) result = result.filter((a) => a.location === locationFilter);
     if (statusFilter) result = result.filter((a) => a.status === statusFilter);
+    if (stockFilter === 'available') result = result.filter(isAvailable);
+    if (stockFilter === 'assigned') result = result.filter(isAssigned);
 
     result = [...result].sort((a, b) => {
       const av = a[sortField] ?? '';
@@ -74,7 +80,7 @@ export default function InventoryView({
     });
 
     return result;
-  }, [assets, search, categoryFilter, locationFilter, statusFilter, sortField, sortAsc]);
+  }, [assets, search, categoryFilter, locationFilter, statusFilter, stockFilter, sortField, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -100,6 +106,8 @@ export default function InventoryView({
         onLocationChange={(v) => { setLocationFilter(v); setPage(1); }}
         statusFilter={statusFilter}
         onStatusChange={(v) => { setStatusFilter(v); setPage(1); }}
+        stockFilter={stockFilter}
+        onStockChange={(v) => { setStockFilter(v); setPage(1); }}
         locations={locations}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -140,7 +148,7 @@ export default function InventoryView({
           ))}
           {paginated.length === 0 && (
             <div className="col-span-full rounded-2xl border border-slate-200 bg-white py-12 text-center text-sm text-slate-400">
-              No assets found. Try adjusting your search or filters.
+              No items found. Try adjusting your search or filters.
             </div>
           )}
         </div>

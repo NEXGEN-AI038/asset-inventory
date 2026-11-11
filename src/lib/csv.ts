@@ -5,6 +5,8 @@ export const CSV_HEADERS = [
   'name',
   'category',
   'assigned_to',
+  'project_name',
+  'assigned_by',
   'location',
   'purchase_date',
   'purchase_price',
@@ -15,11 +17,11 @@ export const CSV_HEADERS = [
 export function generateSampleCsv(): string {
   const rows = [
     CSV_HEADERS.join(','),
-    ['AST-001', 'Dell Latitude 5520', 'Laptops', 'John Smith', 'HQ - Floor 2', '2023-03-15', '1200.00', 'In Use', 'Primary dev laptop'].join(','),
-    ['AST-002', 'iPhone 14 Pro', 'Mobile', 'Sarah Johnson', 'HQ - Floor 1', '2023-06-01', '999.00', 'In Use', 'Company phone'].join(','),
-    ['AST-003', 'Standing Desk', 'Furniture', 'Marketing Dept', 'HQ - Floor 3', '2022-11-20', '650.00', 'Active', 'Adjustable height'].join(','),
-    ['AST-004', 'Adobe Creative Cloud', 'Software', 'Design Team', 'Remote', '2024-01-10', '599.88', 'In Use', '5 seats'].join(','),
-    ['AST-005', 'Canon Printer MF445dw', 'Office Equipment', 'Operations', 'HQ - Floor 1', '2023-08-05', '380.00', 'Under Maintenance', 'Paper jam issue'].join(','),
+    ['PNL-001', 'Waaree 540W Mono PERC Panel', 'Solar Panels', '', '', '', 'Main Warehouse', '2026-09-10', '14500.00', 'Active', 'Serial WR540-0001'].join(','),
+    ['PNL-002', 'Waaree 540W Mono PERC Panel', 'Solar Panels', 'Ravi Kumar', 'Sharma Residence 5kW', 'Anita Das', 'Site - Salt Lake', '2026-09-10', '14500.00', 'In Use', 'Serial WR540-0002'].join(','),
+    ['INV-001', 'Growatt 5kW On-Grid Inverter', 'Inverters', '', '', '', 'Main Warehouse', '2026-09-12', '48000.00', 'Active', ''].join(','),
+    ['BAT-001', 'Luminous 150Ah Battery', 'Batteries', '', '', '', 'Main Warehouse', '2026-09-15', '16500.00', 'Active', ''].join(','),
+    ['STR-001', 'GI Mounting Structure 5kW', 'Mounting Structures', 'Imran Sheikh', 'Das Apartments 10kW', 'Anita Das', 'Site - Howrah', '2026-09-18', '22000.00', 'In Use', ''].join(','),
   ];
   return rows.join('\n');
 }
@@ -86,6 +88,8 @@ export function mapCsvRecordToAsset(record: Record<string, string>): AssetInput 
     name: get('name'),
     category: get('category') || 'Other',
     assigned_to: get('assigned_to') || null,
+    project_name: get('project_name') || null,
+    assigned_by: get('assigned_by') || null,
     location: get('location') || null,
     purchase_date: get('purchase_date') || null,
     purchase_price: parseFloat(get('purchase_price')) || 0,

@@ -1,4 +1,4 @@
-import { Pencil, History, Trash2, MapPin, User, Calendar, IndianRupee } from 'lucide-react';
+import { Pencil, History, Trash2, MapPin, User, Calendar, IndianRupee, Briefcase, UserCheck } from 'lucide-react';
 import { formatINR } from '@/lib/currency';
 import type { Asset } from '@/types';
 import { STATUS_STYLES, STATUS_DOT, CATEGORY_COLORS } from '@/lib/constants';
@@ -37,8 +37,20 @@ export default function AssetCard({ asset, onEdit, onLogUpdate, onDelete, canEdi
       <div className="mb-4 space-y-2 text-xs text-slate-500">
         <div className="flex items-center gap-2">
           <User className="h-3.5 w-3.5 text-slate-400" />
-          <span>{asset.assigned_to || 'Unassigned'}</span>
+          <span>{asset.assigned_to || 'In stock'}</span>
         </div>
+        {asset.assigned_to && (
+          <>
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-3.5 w-3.5 text-slate-400" />
+              <span>{asset.project_name || 'No project'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-3.5 w-3.5 text-slate-400" />
+              <span>Assigned by {asset.assigned_by || '—'}</span>
+            </div>
+          </>
+        )}
         <div className="flex items-center gap-2">
           <MapPin className="h-3.5 w-3.5 text-slate-400" />
           <span>{asset.location || 'No location'}</span>

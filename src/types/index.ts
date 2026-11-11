@@ -6,11 +6,13 @@ export type AssetStatus =
   | 'Lost';
 
 export type AssetCategory =
-  | 'Laptops'
-  | 'Mobile'
-  | 'Furniture'
-  | 'Software'
-  | 'Office Equipment'
+  | 'Solar Panels'
+  | 'Inverters'
+  | 'Batteries'
+  | 'Mounting Structures'
+  | 'Cables & Wiring'
+  | 'Meters & Protection'
+  | 'Tools & Equipment'
   | 'Other';
 
 export type ChangeType =
@@ -26,6 +28,8 @@ export interface Asset {
   name: string;
   category: string;
   assigned_to: string | null;
+  project_name: string | null;
+  assigned_by: string | null;
   location: string | null;
   purchase_date: string | null;
   purchase_price: number;
@@ -54,6 +58,8 @@ export interface AssetInput {
   name: string;
   category: string;
   assigned_to: string | null;
+  project_name: string | null;
+  assigned_by: string | null;
   location: string | null;
   purchase_date: string | null;
   purchase_price: number;
@@ -70,11 +76,13 @@ export const ASSET_STATUSES: AssetStatus[] = [
 ];
 
 export const ASSET_CATEGORIES: AssetCategory[] = [
-  'Laptops',
-  'Mobile',
-  'Furniture',
-  'Software',
-  'Office Equipment',
+  'Solar Panels',
+  'Inverters',
+  'Batteries',
+  'Mounting Structures',
+  'Cables & Wiring',
+  'Meters & Protection',
+  'Tools & Equipment',
   'Other',
 ];
 

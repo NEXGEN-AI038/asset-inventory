@@ -12,6 +12,8 @@ interface InventoryToolbarProps {
   onLocationChange: (value: string) => void;
   statusFilter: string;
   onStatusChange: (value: string) => void;
+  stockFilter: string;
+  onStockChange: (value: string) => void;
   locations: string[];
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
@@ -32,6 +34,8 @@ export default function InventoryToolbar({
   onLocationChange,
   statusFilter,
   onStatusChange,
+  stockFilter,
+  onStockChange,
   locations,
   viewMode,
   onViewModeChange,
@@ -42,13 +46,14 @@ export default function InventoryToolbar({
   canAdd,
   resultCount,
 }: InventoryToolbarProps) {
-  const hasFilters = search || categoryFilter || locationFilter || statusFilter;
+  const hasFilters = search || categoryFilter || locationFilter || statusFilter || stockFilter;
 
   const clearFilters = () => {
     onSearchChange('');
     onCategoryChange('');
     onLocationChange('');
     onStatusChange('');
+    onStockChange('');
   };
 
   return (
@@ -60,7 +65,7 @@ export default function InventoryToolbar({
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search by name, tag, or user..."
+            placeholder="Search by item, tag, person or project..."
             className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-700 placeholder-slate-400 transition-colors focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
           />
         </div>
@@ -88,13 +93,23 @@ export default function InventoryToolbar({
               className="flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700 hover:shadow-indigo-500/30"
             >
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Asset</span>
+              <span className="hidden sm:inline">Add Item</span>
             </button>
           )}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
+        <select
+          value={stockFilter}
+          onChange={(e) => onStockChange(e.target.value)}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 transition-colors focus:border-indigo-400 focus:outline-none"
+        >
+          <option value="">All Stock</option>
+          <option value="available">Available in stock</option>
+          <option value="assigned">Assigned to projects</option>
+        </select>
+
         <select
           value={categoryFilter}
           onChange={(e) => onCategoryChange(e.target.value)}

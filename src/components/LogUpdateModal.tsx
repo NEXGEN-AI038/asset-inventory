@@ -3,18 +3,21 @@ import { X, Save, History } from 'lucide-react';
 import type { Asset, ChangeType } from '@/types';
 import { CHANGE_TYPES } from '@/types';
 import type { AuthUser, Permissions } from '@/lib/auth';
+import { describeAssignment } from '@/lib/stock';
 
 interface LogUpdateModalProps {
   asset: Asset;
   currentUser: AuthUser;
   permissions: Permissions;
   onClose: () => void;
+  /** Resolve to an error message to show in the form, or null on success */
   onSave: (log: {
     change_type: ChangeType;
     previous_value: string;
     new_value: string;
     updated_by: string;
-  }) => void;
+    assignment?: { assigned_to: string | null; project_name: string | null; assigned_by: string | null };
+  }) => Promise<string | null>;
 }
 
 export default function LogUpdateModal({ asset, currentUser, permissions, onClose, onSave }: LogUpdateModalProps) {
@@ -23,29 +26,76 @@ export default function LogUpdateModal({ asset, currentUser, permissions, onClos
   const [previousValue, setPreviousValue] = useState(getCurrentValue(asset, allowedTypes[0] ?? 'Status'));
   const [newValue, setNewValue] = useState('');
   const [updatedBy, setUpdatedBy] = useState(currentUser.displayName);
+  const [projectName, setProjectName] = useState('');
+  const [assignedBy, setAssignedBy] = useState(currentUser.displayName);
+  const [returnToStock, setReturnToStock] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const handleTypeChange = (type: ChangeType) => {
     setChangeType(type);
     setPreviousValue(getCurrentValue(asset, type));
     setNewValue('');
+    setReturnToStock(false);
+    setError('');
   };
 
-  const handleSubmit = () => {
-    if (!newValue.trim()) {
-      setError('New value is required');
-      return;
-    }
+  const isAssign = changeType === 'Reassignment';
+
+  const handleSubmit = async () => {
     if (!updatedBy.trim()) {
       setError('Your name is required');
       return;
     }
-    onSave({
-      change_type: changeType,
-      previous_value: previousValue,
-      new_value: newValue,
-      updated_by: updatedBy.trim(),
-    });
+    setError('');
+
+    let payload;
+    if (isAssign) {
+      if (returnToStock) {
+        payload = {
+          change_type: changeType,
+          previous_value: previousValue,
+          new_value: 'In stock',
+          updated_by: updatedBy.trim(),
+          assignment: { assigned_to: null, project_name: null, assigned_by: null },
+        };
+      } else {
+        if (!newValue.trim()) {
+          setError('Enter who the item is being assigned to');
+          return;
+        }
+        const assignment = {
+          assigned_to: newValue.trim(),
+          project_name: projectName.trim() || null,
+          assigned_by: assignedBy.trim() || updatedBy.trim(),
+        };
+        payload = {
+          change_type: changeType,
+          previous_value: previousValue,
+          new_value: describeAssignment(assignment),
+          updated_by: updatedBy.trim(),
+          assignment,
+        };
+      }
+    } else {
+      if (!newValue.trim()) {
+        setError('New value is required');
+        return;
+      }
+      payload = {
+        change_type: changeType,
+        previous_value: previousValue,
+        new_value: newValue,
+        updated_by: updatedBy.trim(),
+      };
+    }
+
+    setSaving(true);
+    const message = await onSave(payload);
+    if (message) {
+      setError(message);
+      setSaving(false);
+    }
   };
 
   return (
@@ -90,7 +140,7 @@ export default function LogUpdateModal({ asset, currentUser, permissions, onClos
                           : 'cursor-not-allowed border-slate-100 text-slate-300 opacity-60'
                     }`}
                   >
-                    {type}
+                    {type === 'Reassignment' ? 'Assign' : type}
                   </button>
                 );
               })}
@@ -100,24 +150,72 @@ export default function LogUpdateModal({ asset, currentUser, permissions, onClos
             )}
           </Field>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Previous Value">
-              <input
-                value={previousValue}
-                onChange={(e) => setPreviousValue(e.target.value)}
-                placeholder="What it was before"
-                className={inputClass}
-              />
-            </Field>
-            <Field label="New Value *">
-              <input
-                value={newValue}
-                onChange={(e) => setNewValue(e.target.value)}
-                placeholder="What it is now"
-                className={inputClass}
-              />
-            </Field>
-          </div>
+          {isAssign ? (
+            <>
+              <Field label="Currently">
+                <input value={previousValue} readOnly className={`${inputClass} bg-slate-50 text-slate-500`} />
+              </Field>
+
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={returnToStock}
+                  onChange={(e) => setReturnToStock(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                />
+                Return this item to stock (unassign)
+              </label>
+
+              {!returnToStock && (
+                <>
+                  <Field label="Assign To *">
+                    <input
+                      value={newValue}
+                      onChange={(e) => setNewValue(e.target.value)}
+                      placeholder="Installer / team name"
+                      className={inputClass}
+                    />
+                  </Field>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Field label="Name of Project">
+                      <input
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        placeholder="Sharma Residence 5kW"
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Assigned By">
+                      <input
+                        value={assignedBy}
+                        onChange={(e) => setAssignedBy(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Previous Value">
+                <input
+                  value={previousValue}
+                  onChange={(e) => setPreviousValue(e.target.value)}
+                  placeholder="What it was before"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="New Value *">
+                <input
+                  value={newValue}
+                  onChange={(e) => setNewValue(e.target.value)}
+                  placeholder="What it is now"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+          )}
 
           <Field label="Updated By *">
             <input
@@ -138,9 +236,10 @@ export default function LogUpdateModal({ asset, currentUser, permissions, onClos
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center gap-2 rounded-xl bg-amber-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700"
+            disabled={saving}
+            className="flex items-center gap-2 rounded-xl bg-amber-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
           >
-            <Save className="h-4 w-4" /> Save Log Entry
+            <Save className="h-4 w-4" /> {saving ? 'Saving…' : isAssign ? 'Save Assignment' : 'Save Log Entry'}
           </button>
         </div>
       </div>
@@ -155,7 +254,7 @@ function getCurrentValue(asset: Asset, type: ChangeType): string {
     case 'Location':
       return asset.location ?? '';
     case 'Reassignment':
-      return asset.assigned_to ?? '';
+      return describeAssignment(asset);
     case 'Note':
       return asset.notes ?? '';
   }

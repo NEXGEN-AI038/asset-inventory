@@ -33,6 +33,8 @@ export default function AssetTable({
     { key: 'name', label: 'Name', sortable: true },
     { key: 'category', label: 'Category', sortable: true },
     { key: 'assigned_to', label: 'Assigned To', sortable: true },
+    { key: 'project_name', label: 'Project', sortable: true },
+    { key: 'assigned_by', label: 'Assigned By', sortable: true },
     { key: 'location', label: 'Location', sortable: true },
     { key: 'purchase_date', label: 'Purchase Date', sortable: true },
     { key: 'purchase_price', label: 'Price', sortable: true },
@@ -78,7 +80,9 @@ export default function AssetTable({
               </td>
               <td className="px-4 py-3 font-medium text-slate-800">{asset.name}</td>
               <td className="px-4 py-3 text-slate-500">{asset.category}</td>
-              <td className="px-4 py-3 text-slate-500">{asset.assigned_to || '—'}</td>
+              <td className="px-4 py-3 text-slate-500">{asset.assigned_to || <span className="text-emerald-600">In stock</span>}</td>
+              <td className="px-4 py-3 text-slate-500">{asset.project_name || '—'}</td>
+              <td className="px-4 py-3 text-slate-500">{asset.assigned_by || '—'}</td>
               <td className="px-4 py-3 text-slate-500">{asset.location || '—'}</td>
               <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                 {asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString() : '—'}
@@ -129,8 +133,8 @@ export default function AssetTable({
           ))}
           {assets.length === 0 && (
             <tr>
-              <td colSpan={hasActions ? 9 : 8} className="py-12 text-center text-slate-400">
-                No assets found. Try adjusting your search or filters.
+              <td colSpan={hasActions ? 11 : 10} className="py-12 text-center text-slate-400">
+                No items found. Try adjusting your search or filters.
               </td>
             </tr>
           )}

@@ -17,11 +17,13 @@ export const STATUS_DOT: Record<AssetStatus, string> = {
 };
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  Laptops: 'bg-indigo-500',
-  Mobile: 'bg-sky-500',
-  Furniture: 'bg-amber-500',
-  Software: 'bg-emerald-500',
-  'Office Equipment': 'bg-rose-500',
+  'Solar Panels': 'bg-amber-500',
+  Inverters: 'bg-indigo-500',
+  Batteries: 'bg-emerald-500',
+  'Mounting Structures': 'bg-sky-500',
+  'Cables & Wiring': 'bg-rose-500',
+  'Meters & Protection': 'bg-violet-500',
+  'Tools & Equipment': 'bg-teal-500',
   Other: 'bg-slate-400',
 };
 

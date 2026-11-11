@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase, initialAuthLink } from '@/lib/supabase';
 import type { Asset, AuditLog, AssetInput, ChangeType } from '@/types';
 import { assetsToCsv, downloadFile } from '@/lib/csv';
+import { normalizeAssignment } from '@/lib/stock';
 import { userFromSession, signOut, getPermissions, type AuthUser } from '@/lib/auth';
 
 import Header, { type Tab } from '@/components/Header';
@@ -86,7 +87,13 @@ export default function App() {
     return () => { active = false; };
   }, [userKey, isPlatformAdmin, fetchAssets, fetchLogs]);
 
-  const handleSaveAsset = async (input: AssetInput) => {
+  const dbMessage = (error: { code?: string; message: string }) => {
+    if (error.code === '23505') return 'An item with that Asset Tag already exists. Asset Tags must be unique.';
+    if (error.code === '42501') return 'You do not have permission to do that.';
+    return error.message;
+  };
+
+  const handleSaveAsset = async (input: AssetInput): Promise<string | null> => {
     if (editingAsset && editingAsset !== 'new') {
       const { error } = await supabase
         .from('assets')
@@ -94,6 +101,8 @@ export default function App() {
           name: input.name,
           category: input.category,
           assigned_to: input.assigned_to,
+          project_name: input.project_name,
+          assigned_by: input.assigned_by,
           location: input.location,
           purchase_date: input.purchase_date,
           purchase_price: input.purchase_price,
@@ -101,13 +110,14 @@ export default function App() {
           notes: input.notes,
         })
         .eq('id', editingAsset.id);
-      if (error) { console.error('Failed to update asset:', error); return; }
+      if (error) { console.error('Failed to update asset:', error); return dbMessage(error); }
     } else {
       const { error } = await supabase.from('assets').insert(input);
-      if (error) { console.error('Failed to create asset:', error); return; }
+      if (error) { console.error('Failed to create asset:', error); return dbMessage(error); }
     }
     await fetchAssets();
     setEditingAsset(null);
+    return null;
   };
 
   const handleDeleteAsset = async () => {
@@ -123,8 +133,27 @@ export default function App() {
     previous_value: string;
     new_value: string;
     updated_by: string;
-  }) => {
-    if (!loggingAsset) return;
+    assignment?: { assigned_to: string | null; project_name: string | null; assigned_by: string | null };
+  }): Promise<string | null> => {
+    if (!loggingAsset) return null;
+
+    const updates: Partial<Asset> = {};
+    if (log.change_type === 'Status') updates.status = log.new_value as Asset['status'];
+    else if (log.change_type === 'Location') updates.location = log.new_value;
+    else if (log.change_type === 'Note') updates.notes = log.new_value;
+    else if (log.change_type === 'Reassignment' && log.assignment) {
+      updates.assigned_to = log.assignment.assigned_to;
+      updates.project_name = log.assignment.project_name;
+      updates.assigned_by = log.assignment.assigned_by;
+      // keep stock counts consistent: assigned items are In Use, returned items are Active again
+      if (log.assignment.assigned_to && loggingAsset.status === 'Active') updates.status = 'In Use';
+      if (!log.assignment.assigned_to && loggingAsset.status === 'In Use') updates.status = 'Active';
+    }
+
+    if (Object.keys(updates).length > 0) {
+      const { error: updateError } = await supabase.from('assets').update(updates).eq('id', loggingAsset.id);
+      if (updateError) { console.error('Failed to update asset:', updateError); return dbMessage(updateError); }
+    }
 
     const { error: logError } = await supabase.from('audit_logs').insert({
       asset_id: loggingAsset.id,
@@ -136,28 +165,24 @@ export default function App() {
       updated_by: log.updated_by,
       reported_to_management: false,
     });
-    if (logError) { console.error('Failed to create audit log:', logError); return; }
-
-    const updates: Partial<Asset> = {};
-    if (log.change_type === 'Status') updates.status = log.new_value as Asset['status'];
-    else if (log.change_type === 'Location') updates.location = log.new_value;
-    else if (log.change_type === 'Reassignment') updates.assigned_to = log.new_value;
-    else if (log.change_type === 'Note') updates.notes = log.new_value;
-
-    if (Object.keys(updates).length > 0) {
-      const { error: updateError } = await supabase.from('assets').update(updates).eq('id', loggingAsset.id);
-      if (updateError) { console.error('Failed to update asset after log:', updateError); }
+    if (logError) {
+      console.error('Failed to create audit log:', logError);
+      await fetchAssets();
+      return `The item was updated, but the audit entry could not be saved: ${dbMessage(logError)}`;
     }
 
     await Promise.all([fetchAssets(), fetchLogs()]);
     setLoggingAsset(null);
+    return null;
   };
 
-  const handleImport = async (records: AssetInput[]) => {
-    const { error } = await supabase.from('assets').insert(records);
-    if (error) { console.error('Failed to import assets:', error); return; }
+  const handleImport = async (records: AssetInput[]): Promise<string | null> => {
+    const prepared = records.map((r) => normalizeAssignment(r, currentUser?.displayName ?? ''));
+    const { error } = await supabase.from('assets').insert(prepared);
+    if (error) { console.error('Failed to import assets:', error); return dbMessage(error); }
     await fetchAssets();
     setShowImporter(false);
+    return null;
   };
 
   const handleExport = () => {
@@ -166,6 +191,8 @@ export default function App() {
       name: a.name,
       category: a.category,
       assigned_to: a.assigned_to,
+      project_name: a.project_name,
+      assigned_by: a.assigned_by,
       location: a.location,
       purchase_date: a.purchase_date,
       purchase_price: a.purchase_price,
@@ -173,7 +200,7 @@ export default function App() {
       notes: a.notes,
     }));
     const csv = assetsToCsv(csvInputs);
-    downloadFile(`assets_export_${new Date().toISOString().split('T')[0]}.csv`, csv);
+    downloadFile(`stock_register_${new Date().toISOString().split('T')[0]}.csv`, csv);
   };
 
   const handleMarkReported = async (logIds: string[]) => {
@@ -265,6 +292,7 @@ export default function App() {
       {editingAsset !== null && (
         <AssetFormModal
           asset={editingAsset === 'new' ? null : editingAsset}
+          currentUserName={currentUser.displayName}
           onClose={() => setEditingAsset(null)}
           onSave={handleSaveAsset}
         />

@@ -3,6 +3,8 @@
 1. **Database** – Supabase → SQL Editor → run, in this order:
    - `supabase/migrations/20260930150000_companies_profiles_invites.sql`
      (this also deletes the old dummy data)
+   - `supabase/migrations/20261111090000_stock_assignment_fields.sql`
+     (adds Project Name / Assigned By to items — **run this BEFORE pushing the new code**)
 2. **Platform admin** – Supabase → Authentication → Users → *Add user → Create new user*
    (`souravmukherjee038@gmail.com`, a password, tick *Auto Confirm User*), then run
    `supabase/bootstrap_platform_admin.sql` in the SQL Editor.
@@ -14,3 +16,7 @@
    - Sign In / Providers → turn **off** "Allow new users to sign up".
    - SMTP Settings → add your own email provider (the built-in sender is heavily rate-limited).
 5. Push to GitHub → Vercel redeploys. Env vars stay `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+
+6. **Optional – branded emails** – Supabase → Authentication → Emails → Templates: paste
+   `supabase/email-templates/invite.html` into "Invite user" and `recovery.html` into "Reset password"
+   (subjects are written at the top of each file).

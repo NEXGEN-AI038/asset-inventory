@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { Activity, TrendingUp } from 'lucide-react';
+import { Activity, TrendingUp, Briefcase } from 'lucide-react';
 import type { Asset, AuditLog } from '@/types';
 import { STATUS_STYLES, CATEGORY_COLORS } from '@/lib/constants';
+import { isAssigned } from '@/lib/stock';
 import StatCards from './StatCards';
 import CategoryChart from './CategoryChart';
 
@@ -17,6 +18,16 @@ export default function Dashboard({ assets, auditLogs }: DashboardProps) {
       counts[a.status] = (counts[a.status] ?? 0) + 1;
     }
     return counts;
+  }, [assets]);
+
+  const projectBreakdown = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const a of assets) {
+      if (!isAssigned(a)) continue;
+      const name = (a.project_name ?? '').trim() || 'No project named';
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
   }, [assets]);
 
   const recentLogs = useMemo(() => {
@@ -55,7 +66,27 @@ export default function Dashboard({ assets, auditLogs }: DashboardProps) {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="mb-5 flex items-center gap-2">
+          <Briefcase className="h-4 w-4 text-indigo-500" />
+          <h3 className="text-base font-semibold text-slate-800">Items by Project</h3>
+        </div>
+        {projectBreakdown.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">No items assigned to a project yet</p>
+        ) : (
+          <div className="space-y-3">
+            {projectBreakdown.map(([project, count]) => (
+              <div key={project} className="flex items-center justify-between gap-3">
+                <span className="truncate text-sm text-slate-600">{project}</span>
+                <span className="shrink-0 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">{count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 lg:col-span-2">
         <div className="mb-5 flex items-center gap-2">
           <Activity className="h-4 w-4 text-indigo-500" />
           <h3 className="text-base font-semibold text-slate-800">Recent Activity</h3>
@@ -86,6 +117,7 @@ export default function Dashboard({ assets, auditLogs }: DashboardProps) {
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

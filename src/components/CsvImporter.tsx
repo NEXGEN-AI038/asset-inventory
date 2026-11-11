@@ -6,7 +6,8 @@ import { formatINR } from '@/lib/currency';
 
 interface CsvImporterProps {
   onClose: () => void;
-  onImport: (records: AssetInput[]) => void;
+  /** Resolve to an error message to show, or null on success */
+  onImport: (records: AssetInput[]) => Promise<string | null>;
 }
 
 type Step = 'upload' | 'mapping' | 'preview';
@@ -18,6 +19,7 @@ export default function CsvImporter({ onClose, onImport }: CsvImporterProps) {
   const [parsedAssets, setParsedAssets] = useState<AssetInput[]>([]);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState('');
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback((file: File) => {
@@ -55,16 +57,28 @@ export default function CsvImporter({ onClose, onImport }: CsvImporterProps) {
   };
 
   const handleDownloadSample = () => {
-    downloadFile('asset_template.csv', generateSampleCsv());
+    downloadFile('stock_template.csv', generateSampleCsv());
   };
 
-  const handleConfirmImport = () => {
+  const handleConfirmImport = async () => {
     const valid = parsedAssets.filter((a) => a.asset_tag.trim() && a.name.trim());
     if (valid.length === 0) {
       setError('No valid records found. Each row needs at least an asset_tag and name.');
       return;
     }
-    onImport(valid);
+    const tags = valid.map((a) => a.asset_tag.trim().toLowerCase());
+    const dupes = tags.filter((t, i) => tags.indexOf(t) !== i);
+    if (dupes.length > 0) {
+      setError(`Duplicate asset_tag in the file: ${Array.from(new Set(dupes)).slice(0, 3).join(', ')}. Each tag must be unique.`);
+      return;
+    }
+    setError('');
+    setImporting(true);
+    const message = await onImport(valid);
+    if (message) {
+      setError(message);
+      setImporting(false);
+    }
   };
 
   return (
@@ -79,7 +93,7 @@ export default function CsvImporter({ onClose, onImport }: CsvImporterProps) {
               <FileSpreadsheet className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-slate-800">Import Assets from CSV</h2>
+              <h2 className="text-base font-semibold text-slate-800">Import Stock from CSV</h2>
               <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
                 <StepIndicator active={step === 'upload'} done={step !== 'upload'} label="Upload" />
                 <ArrowRight className="h-3 w-3" />
@@ -214,6 +228,8 @@ export default function CsvImporter({ onClose, onImport }: CsvImporterProps) {
                         <th className="px-3 py-2 font-semibold text-slate-500">Tag</th>
                         <th className="px-3 py-2 font-semibold text-slate-500">Name</th>
                         <th className="px-3 py-2 font-semibold text-slate-500">Category</th>
+                        <th className="px-3 py-2 font-semibold text-slate-500">Assigned To</th>
+                        <th className="px-3 py-2 font-semibold text-slate-500">Project</th>
                         <th className="px-3 py-2 font-semibold text-slate-500">Status</th>
                         <th className="px-3 py-2 font-semibold text-slate-500">Price</th>
                       </tr>
@@ -224,6 +240,8 @@ export default function CsvImporter({ onClose, onImport }: CsvImporterProps) {
                           <td className="px-3 py-2 font-mono text-slate-500">{a.asset_tag || '—'}</td>
                           <td className="px-3 py-2 font-medium text-slate-700">{a.name || '—'}</td>
                           <td className="px-3 py-2 text-slate-500">{a.category}</td>
+                          <td className="px-3 py-2 text-slate-500">{a.assigned_to || '—'}</td>
+                          <td className="px-3 py-2 text-slate-500">{a.project_name || '—'}</td>
                           <td className="px-3 py-2 text-slate-500">{a.status}</td>
                           <td className="px-3 py-2 text-slate-500">{formatINR(a.purchase_price)}</td>
                         </tr>
@@ -242,9 +260,10 @@ export default function CsvImporter({ onClose, onImport }: CsvImporterProps) {
                 </button>
                 <button
                   onClick={handleConfirmImport}
-                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
+                  disabled={importing}
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
                 >
-                  <Check className="h-4 w-4" /> Import {parsedAssets.length} Records
+                  <Check className="h-4 w-4" /> {importing ? 'Importing…' : `Import ${parsedAssets.length} Records`}
                 </button>
               </div>
             </div>

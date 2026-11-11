@@ -2,11 +2,14 @@ import { useState } from 'react';
 import { X, Save } from 'lucide-react';
 import type { Asset, AssetInput, AssetStatus, AssetCategory } from '@/types';
 import { ASSET_STATUSES, ASSET_CATEGORIES } from '@/types';
+import { normalizeAssignment } from '@/lib/stock';
 
 interface AssetFormModalProps {
   asset: Asset | null;
   onClose: () => void;
-  onSave: (input: AssetInput) => void;
+  currentUserName: string;
+  /** Resolve to an error message to show in the form, or null on success */
+  onSave: (input: AssetInput) => Promise<string | null>;
 }
 
 const emptyInput: AssetInput = {
@@ -14,6 +17,8 @@ const emptyInput: AssetInput = {
   name: '',
   category: 'Other',
   assigned_to: '',
+  project_name: '',
+  assigned_by: '',
   location: '',
   purchase_date: '',
   purchase_price: 0,
@@ -21,7 +26,7 @@ const emptyInput: AssetInput = {
   notes: '',
 };
 
-export default function AssetFormModal({ asset, onClose, onSave }: AssetFormModalProps) {
+export default function AssetFormModal({ asset, currentUserName, onClose, onSave }: AssetFormModalProps) {
   const [form, setForm] = useState<AssetInput>(
     asset
       ? {
@@ -29,6 +34,8 @@ export default function AssetFormModal({ asset, onClose, onSave }: AssetFormModa
           name: asset.name,
           category: asset.category,
           assigned_to: asset.assigned_to ?? '',
+          project_name: asset.project_name ?? '',
+          assigned_by: asset.assigned_by ?? '',
           location: asset.location ?? '',
           purchase_date: asset.purchase_date ?? '',
           purchase_price: asset.purchase_price,
@@ -38,23 +45,36 @@ export default function AssetFormModal({ asset, onClose, onSave }: AssetFormModa
       : emptyInput
   );
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const update = (field: keyof AssetInput, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.asset_tag.trim() || !form.name.trim()) {
       setError('Asset Tag and Name are required');
       return;
     }
-    onSave({
-      ...form,
-      assigned_to: form.assigned_to?.trim() || null,
-      location: form.location?.trim() || null,
-      purchase_date: form.purchase_date || null,
-      notes: form.notes?.trim() || null,
-    });
+    setSaving(true);
+    setError('');
+    const message = await onSave(
+      normalizeAssignment(
+        {
+          ...form,
+          asset_tag: form.asset_tag.trim(),
+          name: form.name.trim(),
+          location: form.location?.trim() || null,
+          purchase_date: form.purchase_date || null,
+          notes: form.notes?.trim() || null,
+        },
+        currentUserName,
+      ),
+    );
+    if (message) {
+      setError(message);
+      setSaving(false);
+    }
   };
 
   return (
@@ -102,7 +122,7 @@ export default function AssetFormModal({ asset, onClose, onSave }: AssetFormModa
             <input
               value={form.name}
               onChange={(e) => update('name', e.target.value)}
-              placeholder="Dell Latitude 5520"
+              placeholder="Waaree 540W Mono PERC Panel"
               className={inputClass}
             />
           </Field>
@@ -123,18 +143,40 @@ export default function AssetFormModal({ asset, onClose, onSave }: AssetFormModa
               <input
                 value={form.assigned_to ?? ''}
                 onChange={(e) => update('assigned_to', e.target.value)}
-                placeholder="John Smith / Marketing"
+                placeholder="Installer / team name"
                 className={inputClass}
               />
             </Field>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            <Field label="Name of Project">
+              <input
+                value={form.project_name ?? ''}
+                onChange={(e) => update('project_name', e.target.value)}
+                placeholder="Sharma Residence 5kW"
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Assigned By">
+              <input
+                value={form.assigned_by ?? ''}
+                onChange={(e) => update('assigned_by', e.target.value)}
+                placeholder={currentUserName}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+          <p className="-mt-2 text-xs text-slate-400">
+            Fill these in when the item is assigned. Leave "Assigned To" empty to keep it in stock.
+          </p>
+
+          <div className="grid grid-cols-2 gap-4">
             <Field label="Location">
               <input
                 value={form.location ?? ''}
                 onChange={(e) => update('location', e.target.value)}
-                placeholder="HQ - Floor 2"
+                placeholder="Main Warehouse"
                 className={inputClass}
               />
             </Field>
@@ -179,9 +221,10 @@ export default function AssetFormModal({ asset, onClose, onSave }: AssetFormModa
           </button>
           <button
             onClick={handleSubmit}
-            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            disabled={saving}
+            className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-60"
           >
-            <Save className="h-4 w-4" /> {asset ? 'Save Changes' : 'Add Asset'}
+            <Save className="h-4 w-4" /> {saving ? 'Saving…' : asset ? 'Save Changes' : 'Add Asset'}
           </button>
         </div>
       </div>
